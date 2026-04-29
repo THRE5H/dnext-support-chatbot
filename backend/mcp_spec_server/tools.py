@@ -40,31 +40,33 @@ class QueryPlatformSupportingTool:
         """
         try:
             logger.info(f"[MCP Tool] Processing query: {query[:100]}...")
+            logger.info(f"[MCP Tool] Backend URL: {BACKEND_CHAT_ENDPOINT}")
 
             # Call backend /api/chat endpoint with system prompt
             async with httpx.AsyncClient(timeout=RESPONSE_TIMEOUT) as client:
+                logger.info(f"[MCP Tool] Sending request to backend...")
+                
                 response = await client.post(
                     BACKEND_CHAT_ENDPOINT,
                     json={
                         "message": query,
                         "session_id": "mcp_platform_support",
-                        # The system prompt is injected in the message context
-                        "system_context": SYSTEM_PROMPT,
                     },
+                    headers={"Content-Type": "application/json"},
                 )
+
+                logger.info(f"[MCP Tool] Backend response status: {response.status_code}")
 
                 if response.status_code != 200:
                     logger.error(
                         f"[MCP Tool] Backend error: {response.status_code} - {response.text}"
                     )
                     return {
-                        "answer": "I encountered an error processing your question. Please try again."
+                        "answer": f"Backend error: {response.status_code}. Please check if the DNEXT backend is running."
                     }
 
-                # Parse streaming response
-                response_text = await self._parse_streaming_response(
-                    response, client, BACKEND_CHAT_ENDPOINT, query
-                )
+                # Parse response - handle both streaming and regular JSON
+                response_text = await self._parse_backend_response(response)
 
                 logger.info(f"[MCP Tool] Response generated: {response_text[:100]}...")
 
@@ -74,62 +76,69 @@ class QueryPlatformSupportingTool:
             logger.error("[MCP Tool] Request timeout")
             return {"answer": "Your question took too long to process. Please try again."}
         except Exception as e:
-            logger.error(f"[MCP Tool] Unexpected error: {str(e)}")
+            logger.error(f"[MCP Tool] Unexpected error: {str(e)}", exc_info=True)
             return {
-                "answer": "I encountered an unexpected error. Please rephrase your question."
+                "answer": f"Error: {str(e)}. Make sure the backend is running at {BACKEND_CHAT_ENDPOINT}"
             }
 
-    async def _parse_streaming_response(
-        self, response: httpx.Response, client: httpx.AsyncClient, endpoint: str, query: str
-    ) -> str:
+    async def _parse_backend_response(self, response: httpx.Response) -> str:
         """
-        Parse streaming response from backend.
-        Falls back to regular POST if streaming fails.
+        Parse response from backend.
+        Handles both streaming (SSE) and regular JSON responses.
         """
         try:
-            # Try to parse as streaming response
-            full_response = ""
-            async for line in response.aiter_lines():
-                if line.startswith("data:"):
-                    try:
-                        event_data = json.loads(line[5:].strip())
-                        if "content" in event_data:
-                            full_response += event_data["content"]
-                    except json.JSONDecodeError:
-                        continue
+            # First, try to parse as regular JSON (non-streaming)
+            try:
+                data = response.json()
+                logger.info(f"[MCP Tool] Parsed JSON response: {str(data)[:200]}")
+                
+                if "response" in data:
+                    return data["response"]
+                if "message" in data:
+                    return data["message"]
+                if "answer" in data:
+                    return data["answer"]
+                if "content" in data:
+                    return str(data["content"])
+                    
+                # If none of the above, return stringified JSON
+                logger.warning("[MCP Tool] No recognized response field in JSON")
+                return json.dumps(data)
+                
+            except json.JSONDecodeError:
+                logger.info("[MCP Tool] Not JSON, trying to parse as streaming...")
+                
+                # Try to parse as streaming response (Server-Sent Events)
+                full_response = ""
+                text_content = response.text
+                
+                logger.info(f"[MCP Tool] Raw response text: {text_content[:200]}")
+                
+                for line in text_content.split("\n"):
+                    line = line.strip()
+                    if line.startswith("data:"):
+                        try:
+                            event_data = json.loads(line[5:].strip())
+                            if "content" in event_data:
+                                full_response += event_data["content"]
+                        except json.JSONDecodeError:
+                            # Sometimes data is not JSON, just plain text
+                            full_response += line[5:].strip()
 
-            if full_response:
-                return full_response
-
-            # Fallback: try regular JSON response
-            data = response.json()
-            if "response" in data:
-                return data["response"]
-            if "answer" in data:
-                return data["answer"]
-
-            return "No response generated from the platform agent."
+                if full_response:
+                    logger.info(f"[MCP Tool] Parsed streaming response: {full_response[:200]}")
+                    return full_response
+                    
+                # If no data found, return the raw text
+                if text_content:
+                    logger.warning(f"[MCP Tool] Returning raw text: {text_content[:200]}")
+                    return text_content
+                    
+                return "No response content found from backend."
 
         except Exception as e:
-            logger.warning(f"[MCP Tool] Streaming parse failed: {str(e)}, using fallback")
-            # Final fallback: make a new POST request without streaming
-            try:
-                async with httpx.AsyncClient(timeout=RESPONSE_TIMEOUT) as new_client:
-                    fallback_response = await new_client.post(
-                        endpoint,
-                        json={
-                            "message": query,
-                            "session_id": "mcp_platform_support_fallback",
-                            "system_context": SYSTEM_PROMPT,
-                        },
-                    )
-                    if fallback_response.status_code == 200:
-                        data = fallback_response.json()
-                        return data.get("response", data.get("answer", "No response"))
-            except Exception as fallback_error:
-                logger.error(f"[MCP Tool] Fallback also failed: {str(fallback_error)}")
-
-            return "I couldn't generate a response. Please try rephrasing your question."
+            logger.error(f"[MCP Tool] Response parsing error: {str(e)}", exc_info=True)
+            return f"Error parsing response: {str(e)}"
 
 
 # Tool instance
