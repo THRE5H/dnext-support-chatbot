@@ -1,0 +1,133 @@
+# Example MCP Server Configuration for Haotian's RAG System
+# This is the configuration needed to integrate Dhia's MCP server into your agent
+
+mcp_servers:
+  # Dhia's Platform Supporting Agent
+  platform_supporting:
+    # Transport type: HTTP with streaming support
+    transport: streamable_http
+    
+    # MCP Server URL (replace <dhia-host> with actual hostname/IP)
+    # Local testing: http://localhost:8000/mcp
+    # Staging: http://dhia-staging-server:8000/mcp
+    # Production: http://dhia-prod-server:8000/mcp
+    url: http://<dhia-host>:8000/mcp
+    
+    # Optional: Tool-specific settings
+    tools:
+      query_platform_supporting:
+        # How to route queries to this tool
+        routing: "platform_metrics|user_data|analytics"
+        # Timeout for tool calls (seconds)
+        timeout: 60
+
+
+# Agent System Prompt Addition
+# Add this to your main agent system prompt to enable routing:
+#
+# """
+# When the user asks about:
+# - Platform metrics (total users, conversations, statistics)
+# - User data or lookups (by email, name, status)
+# - Conversation history or chat records
+# - Conversation trends or analytics
+# - System health or status
+#
+# Use the `query_platform_supporting` tool from the platform_supporting MCP server.
+# This gives you access to Dhia's database and analytics.
+# 
+# For all other questions, use your primary data catalog tools.
+# """
+
+
+# Example Haotian Agent Config (YAML format)
+---
+agent:
+  name: "RAG Agent with Platform Support"
+  version: "1.0"
+  
+  # MCP Servers Configuration
+  mcp_servers:
+    platform_supporting:
+      transport: streamable_http
+      url: http://localhost:8000/mcp
+  
+  # Tool Routing Configuration
+  tool_routing:
+    # Route user queries about platform data to Dhia's MCP server
+    - pattern: "(statistics|metrics|total users|total conversations|overview|analytics)"
+      target_tool: "query_platform_supporting"
+      confidence: 0.95
+    
+    - pattern: "(user|lookup|find user|by email)"
+      target_tool: "query_platform_supporting"
+      confidence: 0.90
+    
+    - pattern: "(conversation|chat history|recent)"
+      target_tool: "query_platform_supporting"
+      confidence: 0.85
+    
+    - pattern: "(health|status|system|performance)"
+      target_tool: "query_platform_supporting"
+      confidence: 0.90
+
+
+# Testing Configuration
+testing:
+  # Test queries to verify integration
+  test_queries:
+    - "show me system statistics"
+    - "how many users do we have?"
+    - "show recent conversations"
+    - "lookup user john@example.com"
+    - "what is the system status?"
+    - "show conversation trends for the last 7 days"
+  
+  # Expected indicators of successful integration
+  success_criteria:
+    - "Receive valid JSON-RPC 2.0 responses"
+    - "All queries return answers in < 5 seconds"
+    - "Error handling returns proper error codes"
+    - "Tool discovery returns query_platform_supporting"
+
+
+# Logging Configuration
+logging:
+  # Log MCP server interactions
+  level: "INFO"
+  format: "[{timestamp}] {name} - {level} - {message}"
+  
+  # Log files for debugging
+  files:
+    mcp_calls: "logs/mcp_calls.log"
+    errors: "logs/mcp_errors.log"
+
+
+# Monitoring Configuration
+monitoring:
+  # Track MCP server health
+  health_check:
+    enabled: true
+    interval_seconds: 300  # Every 5 minutes
+    timeout_seconds: 10
+  
+  # Alert on issues
+  alerts:
+    - name: "MCP Server Down"
+      condition: "response_time > 60"
+      action: "notify_ops"
+    
+    - name: "High Error Rate"
+      condition: "error_rate > 0.1"
+      action: "notify_ops"
+
+
+# Production Deployment Notes
+# ────────────────────────────────
+# 1. Update <dhia-host> to actual server hostname
+# 2. Use environment variables for hostnames (recommended):
+#    url: ${MCP_PLATFORM_SUPPORTING_URL:-http://localhost:8000/mcp}
+# 3. Set up monitoring for MCP server health
+# 4. Log all tool calls for audit trail
+# 5. Test failover if MCP server goes down
+# 6. Monitor response times and set up alerts
