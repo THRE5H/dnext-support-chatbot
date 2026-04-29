@@ -70,6 +70,13 @@ class QueryPlatformSupportingTool:
 
                 logger.info(f"[MCP Tool] Response generated: {response_text[:100]}...")
 
+                # Check if backend returned an error message
+                if "suspended" in response_text.lower() or "error" in response_text.lower():
+                    logger.warning(f"[MCP Tool] Backend returned error: {response_text}")
+                    return {
+                        "answer": "The backend service is not properly configured for MCP. Please ensure the backend is running with proper session management enabled."
+                    }
+
                 return {"answer": response_text}
 
         except asyncio.TimeoutError:

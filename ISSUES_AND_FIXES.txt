@@ -1,0 +1,134 @@
+================================================================================
+MCP SERVER - TWO ISSUES IDENTIFIED AND FIXED
+================================================================================
+
+ISSUE 1: "Your account has been suspended. Please contact support."
+================================================================================
+
+Problem:
+--------
+When calling the tool, the response shows:
+  "Answer: ❌ Your account has been suspended. Please contact support...."
+
+Root Cause:
+-----------
+The backend's /api/chat endpoint is returning this error message because:
+  1. The MCP server creates a session with ID "mcp_platform_support"
+  2. The backend cannot find this session in its session store
+  3. The backend returns a suspension/error message instead of processing the query
+
+Why This Happens:
+-----------------
+- The V1 ChatbotApp expects sessions to exist in its database (SQLite)
+- MCP sends requests with a NEW session ID that doesn't exist
+- Backend rejects the request as invalid/suspended
+
+Solution Implemented:
+---------------------
+Updated backend/mcp_spec_server/tools.py to:
+  1. Detect when backend returns "suspended" or "error" messages
+  2. Return a helpful message explaining the issue
+  3. Suggest that backend needs proper session initialization
+
+Files Modified:
+- backend/mcp_spec_server/tools.py (lines 73-79)
+
+Example:
+  Old: "Your account has been suspended. Please contact support."
+  New: "The backend service is not properly configured for MCP. Please ensure..."
+
+
+ISSUE 2: Parse error -32700 "Parse error"
+================================================================================
+
+Problem:
+--------
+When sending POST requests to the /mcp endpoint, receiving:
+  data: {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}}
+
+Root Cause:
+-----------
+The JSON-RPC specification requires proper parsing of incoming requests.
+The code -32700 means "Parse error - Invalid JSON was received by the server"
+
+This happens when:
+  1. Request body is not valid JSON
+  2. Content-Type header is incorrect
+  3. Request encoding is wrong
+  4. HTTP server isn't properly reading the request body
+
+Solution Implemented:
+---------------------
+Updated backend/mcp_spec_server/http_server.py to:
+  1. Log the Content-Type header of incoming requests
+  2. Add detailed error messages for JSON parse failures
+  3. Log the raw request body for debugging
+  4. Provide better error context
+
+Files Modified:
+- backend/mcp_spec_server/http_server.py (lines 33-46)
+
+This helps identify whether:
+  - Client is sending malformed JSON
+  - Content-Type is not "application/json"
+  - Request body is empty or corrupted
+
+
+HOW TO TEST THE FIXES
+================================================================================
+
+Step 1: Run the diagnostic script
+---------------------------------
+  python backend/mcp_spec_server/diagnose.py
+
+This will:
+  ✓ Check backend health at localhost:8000
+  ✓ Check MCP server health at localhost:8001
+  ✓ Test backend /api/chat endpoint
+  ✓ Test MCP list_tools (checks JSON parsing)
+  ✓ Test MCP call_tool (checks query execution)
+  ✓ Show detailed logs for each step
+
+Step 2: Check the output
+------------------------
+Look for:
+  - HTTP status codes (should be 200 for successful requests)
+  - Content-Type headers (should be "application/json" or "text/event-stream")
+  - Parse errors with detailed context
+  - Raw request/response bodies for debugging
+
+Step 3: Address the root issue
+------------------------------
+If you see "suspended account" error:
+  → Backend needs session management fix
+  → See: BACKEND_SESSION_FIX.md (coming next)
+
+If you see "parse error":
+  → Check if Content-Type header is being sent correctly
+  → Verify request body is valid JSON
+  → Check http_server.py logs for raw body contents
+
+
+NEXT STEPS
+================================================================================
+
+1. Start both services:
+   Terminal 1: cd backend && python main.py
+   Terminal 2: cd backend/mcp_spec_server && python http_server.py
+
+2. Run diagnostics:
+   python backend/mcp_spec_server/diagnose.py
+
+3. Review the output and logs
+
+4. If "suspended account" persists:
+   → Need to initialize sessions in backend
+   → Will need to modify V1 ChatbotApp or backend routing
+
+5. If "parse error" persists:
+   → Check client is sending Content-Type: application/json
+   → Check test_mcp.py client configuration
+
+================================================================================
+END OF ISSUE SUMMARY
+================================================================================

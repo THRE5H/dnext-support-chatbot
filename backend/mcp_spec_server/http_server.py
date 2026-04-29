@@ -30,7 +30,20 @@ async def mcp_streamable_endpoint(request: Request):
     Accepts JSON-RPC 2.0 requests and returns streaming responses.
     """
     try:
-        body = await request.json()
+        # Log incoming request details
+        content_type = request.headers.get("content-type", "unknown")
+        logger.info(f"[MCP HTTP] Incoming request - Content-Type: {content_type}")
+        
+        # Read and parse JSON body
+        try:
+            body = await request.json()
+        except json.JSONDecodeError as e:
+            logger.error(f"[MCP HTTP] JSON decode error: {str(e)}")
+            # Try reading raw body to debug
+            raw_body = await request.body()
+            logger.error(f"[MCP HTTP] Raw body: {raw_body[:200]}")
+            raise
+        
         logger.info(f"[MCP HTTP] Request: {body.get('method', 'unknown')}")
 
         method = body.get("method")
