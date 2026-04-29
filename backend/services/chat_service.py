@@ -4,6 +4,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Generator, Optional
+from datetime import datetime
 
 # Add parent directory to path to import V1 modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -49,11 +50,38 @@ class ChatService:
             # Session storage (in-memory for now, could use Redis later)
             self.sessions: dict[str, ConversationSession] = {}
             
+            # Create system user for MCP/API access if it doesn't exist
+            self._ensure_system_user()
+            
             self._initialized = True
             logger.info("✅ ChatService initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize ChatService: {e}", exc_info=True)
             raise
+    
+    def _ensure_system_user(self):
+        """Create system user for MCP/API access"""
+        try:
+            # Check if system user exists
+            system_user = self.db.get_user_by_id(1)
+            
+            if not system_user:
+                logger.info("Creating system user for API/MCP access...")
+                from models import User, UserStatus
+                
+                system_user = User(
+                    email="system@dnext.io",
+                    full_name="System User",
+                    status=UserStatus.ACTIVE,
+                    created_at=datetime.now(),
+                )
+                user_id = self.db.create_user(system_user)
+                logger.info(f"✅ System user created with ID: {user_id}")
+            else:
+                logger.info(f"✅ System user already exists: {system_user.email}")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Could not ensure system user: {e}. API may not work for some queries.")
     
     def get_or_create_session(self, session_id: Optional[str] = None) -> ConversationSession:
         """Get existing session or create new one"""
