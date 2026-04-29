@@ -1,0 +1,155 @@
+# QUICK REFERENCE: Testing & Railway Deployment
+
+═══════════════════════════════════════════════════════════════════════════════
+                          LOCAL TESTING (BEFORE DEPLOYMENT)
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Start Backend
+├─ Terminal 1: cd backend && python main.py
+└─ Wait for: "Application startup complete"
+
+STEP 2: Start MCP Server
+├─ Terminal 2: cd backend/mcp_spec_server && python http_server.py
+└─ Expected: "Server running on http://0.0.0.0:8001"
+
+STEP 3: Test with cURL
+
+Test 3a - Health Check:
+  curl http://localhost:8001/health
+  Expected: {"status":"ok"}
+
+Test 3b - List Tools:
+  curl -X POST http://localhost:8001/mcp \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
+  Expected: Contains "query_platform_supporting"
+
+Test 3c - Platform Question (GOOD):
+  curl -X POST http://localhost:8001/mcp \
+    -H "Content-Type: application/json" \
+    -d '{
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "query_platform_supporting",
+        "arguments": {"query": "What is DNEXT?"}
+      }
+    }'
+  Expected: {"answer": "..."}
+
+Test 3d - Data Question (SHOULD REDIRECT):
+  curl -X POST http://localhost:8001/mcp \
+    -H "Content-Type: application/json" \
+    -d '{
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "query_platform_supporting",
+        "arguments": {"query": "Show sales data for Q3"}
+      }
+    }'
+  Expected: {"answer": "That's a data-specific question..."}
+
+STEP 4: Run Python Test Script
+  python backend/mcp_spec_server/test_mcp.py
+  Expected: "ALL TESTS PASSED ✅"
+
+═══════════════════════════════════════════════════════════════════════════════
+                        RAILWAY DEPLOYMENT (PRODUCTION)
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Prepare Files
+├─ Create Procfile at root: mcp: cd backend/mcp_spec_server && python http_server.py
+├─ Create railway.json at root: (see RAILWAY_DEPLOYMENT.md)
+├─ Verify Dockerfile exists: backend/mcp_spec_server/Dockerfile
+└─ Verify requirements.txt: backend/mcp_spec_server/requirements.txt
+
+STEP 2: Push to GitHub
+  git add .
+  git commit -m "Add MCP server for production"
+  git push origin main
+
+STEP 3: Create Railway Project
+├─ Go to https://railway.app
+├─ Click "New Project"
+├─ Select "GitHub Repo"
+├─ Connect your dnext-support-chatbot repo
+└─ Wait for auto-deployment (~2-3 minutes)
+
+STEP 4: Configure Environment Variables (in Railway dashboard)
+├─ BACKEND_URL=http://your-backend-service:8000
+├─ MCP_SERVER_HOST=0.0.0.0
+└─ MCP_SERVER_PORT=8001
+
+STEP 5: Get Production URL
+├─ Railway Dashboard → Your Project
+├─ Click "Deployments"
+├─ Find "mcp-server" service
+└─ Copy URL: https://xxxx.up.railway.app
+
+STEP 6: Test Production URL
+  
+  Health Check:
+  curl https://xxxx.up.railway.app/health
+
+  List Tools:
+  curl -X POST https://xxxx.up.railway.app/mcp \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
+
+  Query Tool:
+  curl -X POST https://xxxx.up.railway.app/mcp \
+    -H "Content-Type: application/json" \
+    -d '{
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "query_platform_supporting",
+        "arguments": {"query": "How does DNEXT work?"}
+      }
+    }'
+
+STEP 7: Share with Haotian
+  Send:
+  - Endpoint: https://xxxx.up.railway.app/mcp
+  - Tool Definition (see HAOTIAN_INTEGRATION.md)
+  - Example requests/responses
+
+═══════════════════════════════════════════════════════════════════════════════
+                              VALIDATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+LOCAL TESTING:
+  ☐ Backend starts without errors
+  ☐ MCP server starts on port 8001
+  ☐ Health endpoint returns OK
+  ☐ tools/list returns query_platform_supporting
+  ☐ Platform questions answered with {"answer": "..."}
+  ☐ Data questions redirected with clear message
+  ☐ Response time < 60 seconds
+  ☐ No stack traces in errors
+  ☐ test_mcp.py passes all tests
+
+RAILWAY DEPLOYMENT:
+  ☐ Procfile created at project root
+  ☐ railway.json created at project root
+  ☐ Code pushed to GitHub
+  ☐ Railway deployment completed
+  ☐ Production URL accessible (https://xxxx.up.railway.app)
+  ☐ Health check passes on production URL
+  ☐ Tool discovery works on production
+  ☐ Platform questions answered on production
+  ☐ Data questions redirected on production
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📚 FULL DOCUMENTATION:
+  - LOCAL_TESTING_GUIDE.md ........... Detailed testing procedures
+  - RAILWAY_DEPLOYMENT.md ........... Step-by-step Railway setup
+  - HAOTIAN_INTEGRATION.md .......... Integration guide for Haotian
+  - backend/mcp_spec_server/README.md  Server overview
+
+═══════════════════════════════════════════════════════════════════════════════
