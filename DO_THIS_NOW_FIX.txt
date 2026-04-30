@@ -1,0 +1,136 @@
+IMMEDIATE STEPS TO FIX MCP SERVER TESTING
+=========================================
+
+The issue: MCP server getting "I encountered an unexpected error" instead of real answers
+The fix: Updated tools.py with better response parsing
+
+WHAT TO DO NOW (4 Steps):
+
+STEP 1: Get the Fixed Code
+---------------------------
+The files are already updated in the repository:
+- backend/mcp_spec_server/tools.py (FIXED - better error handling and response parsing)
+- backend/mcp_spec_server/config.py (already correct)
+- backend/mcp_spec_server/http_server.py (already correct)
+
+Go back to your local VSCode and pull the latest changes:
+  git pull origin main
+
+(Or manually update tools.py with the fixed version)
+
+
+STEP 2: Check Prerequisites
+----------------------------
+Make sure BOTH services are running in separate terminals:
+
+Terminal 1 - DNEXT Backend:
+  cd backend
+  python main.py
+  
+  Expected output: "Application startup complete"
+
+Terminal 2 - MCP Server:
+  cd backend/mcp_spec_server
+  python http_server.py
+  
+  Expected output: 
+  - "Starting server on 0.0.0.0:8001"
+  - "Endpoint: http://0.0.0.0:8001/mcp"
+
+
+STEP 3: Test with the Fixed Code
+---------------------------------
+Terminal 3 - Run Tests:
+  python backend/mcp_spec_server/test_mcp.py
+
+NOW YOU'LL SEE:
+- Detailed logs showing backend URL
+- Response status codes
+- How responses are being parsed
+- Actual error messages with context (not generic errors)
+
+If tests still fail, the logs will show EXACTLY what's wrong.
+
+
+STEP 4: Read the Detailed Debug Guide
+--------------------------------------
+Open: DEBUG_MCP_SERVER.md
+This explains:
+- What was fixed
+- How to interpret the logs
+- How to troubleshoot remaining issues
+- What to do if backend returns errors
+
+
+EXPECTED RESULTS AFTER FIX:
+
+✅ Platform Questions:
+   Input: "What is DNEXT?"
+   Output: Actual answer from backend
+
+✅ Data Questions (Redirect):
+   Input: "Show me sales data"
+   Output: "That's a data question. Use data-catalog tool instead."
+
+✅ Error Messages (Now Useful):
+   Input: [When backend is down]
+   Output: "Error: Connection refused. Make sure backend is running at http://localhost:8000/api/chat"
+
+❌ Generic Errors (These Should Go Away):
+   "I encountered an unexpected error. Please rephrase your question."
+
+
+TESTING WITHOUT RUNNING test_mcp.py:
+
+If you want to test manually, use cURL:
+
+  curl -X POST http://localhost:8001/mcp \
+    -H "Content-Type: application/json" \
+    -d '{
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/call",
+      "params": {
+        "name": "query_platform_supporting",
+        "arguments": {
+          "query": "What is DNEXT platform?"
+        }
+      }
+    }'
+
+You should get back: {"answer": "The DNEXT platform is..."}
+
+
+IF TESTS STILL FAIL:
+
+1. Check backend is really running:
+   curl http://localhost:8000/api/health
+   Should return: {"status":"ok"}
+
+2. Share the error from the test logs with me
+   Include the full [MCP Tool] error messages
+
+3. Most likely fixes:
+   - Backend not running
+   - Wrong port number
+   - BACKEND_URL environment variable not set
+
+
+NEXT: Once Local Tests Pass
+===========================
+
+Then do Railway deployment:
+1. Push to GitHub: git add . && git commit -m "fix: MCP server response parsing" && git push
+2. Create new Railway deployment from your GitHub repo
+3. Get production URL: https://xxxx.up.railway.app/mcp
+4. Share with Haotian with the tool definition
+
+
+Timeline:
+---------
+Local test fix: 5-10 minutes
+Railway deployment: 5-10 minutes
+Total: 15-20 minutes
+
+Then Haotian can start using it!
+

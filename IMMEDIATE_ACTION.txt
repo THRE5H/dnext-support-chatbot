@@ -1,0 +1,57 @@
+DO THIS RIGHT NOW
+================================================================================
+
+1. PULL THE UPDATES
+   git pull origin main
+
+2. START BOTH SERVICES
+   Terminal 1: cd backend && python main.py
+   Terminal 2: cd backend/mcp_spec_server && python http_server.py
+
+3. RUN DIAGNOSTICS
+   Terminal 3: python backend/mcp_spec_server/diagnose.py
+
+4. ANALYZE OUTPUT
+   Read the full output carefully and share key results:
+   - Backend health: PASS/FAIL
+   - MCP health: PASS/FAIL
+   - Backend /api/chat: PASS/FAIL + response details
+   - MCP list_tools: PASS/FAIL + JSON parsing result
+   - MCP call_tool: PASS/FAIL + answer or error
+
+================================================================================
+WHAT THE FIXES DO
+================================================================================
+
+FIX #1: Backend Integration Issue
+  File: backend/mcp_spec_server/tools.py
+  Change: Now detects and handles "suspended account" errors gracefully
+  Result: Better error messages instead of generic errors
+
+FIX #2: JSON Parse Error Debugging
+  File: backend/mcp_spec_server/http_server.py
+  Change: Added detailed logging for request parsing
+  Result: Can now see exact cause of parse errors
+
+================================================================================
+IF YOU GET THESE ERRORS
+
+"Your account has been suspended"
+  → Backend session issue (Need session initialization in backend)
+  → See: BACKEND_SESSION_FIX.md (create this based on results)
+
+"Parse error" (-32700)
+  → JSON-RPC format issue or Content-Type header problem
+  → Check: Is Content-Type: application/json being sent?
+  → Check: Is request body valid JSON?
+
+================================================================================
+THE DIAGNOSTIC SCRIPT SHOWS YOU:
+  ✓ Backend URL and health
+  ✓ MCP URL and health
+  ✓ Request/response bodies
+  ✓ Parsing results
+  ✓ Error messages with context
+
+Run it and share the output so we can identify the exact issue!
+================================================================================

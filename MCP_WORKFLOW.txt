@@ -1,0 +1,204 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║               MCP SERVER: LOCAL → PRODUCTION → HAOTIAN WORKFLOW            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PHASE 1: LOCAL DEVELOPMENT & TESTING
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 1: Start Backend (Terminal 1)                                  │
+  │ $ cd backend && python main.py                                      │
+  │ ✓ Wait for "Application startup complete"                          │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 2: Start MCP Server (Terminal 2)                               │
+  │ $ cd backend/mcp_spec_server && python http_server.py               │
+  │ ✓ Wait for "Server running on http://0.0.0.0:8001"                 │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 3: Test with cURL                                              │
+  │                                                                      │
+  │ Test 3a - Health Check:                                             │
+  │   curl http://localhost:8001/health                                │
+  │   Expected: {"status":"ok"}                                        │
+  │                                                                      │
+  │ Test 3b - List Tools:                                               │
+  │   curl -X POST http://localhost:8001/mcp ...                       │
+  │   Expected: Contains "query_platform_supporting"                   │
+  │                                                                      │
+  │ Test 3c - Platform Question (GOOD):                                 │
+  │   curl -X POST http://localhost:8001/mcp ...                       │
+  │   Query: "What is DNEXT platform?"                                 │
+  │   Expected: {"answer": "..."}                                      │
+  │                                                                      │
+  │ Test 3d - Data Question (SHOULD REDIRECT):                          │
+  │   curl -X POST http://localhost:8001/mcp ...                       │
+  │   Query: "Show sales data"                                         │
+  │   Expected: {"answer": "That's a data-specific question..."}      │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 4: Run Full Test Suite                                         │
+  │ $ python backend/mcp_spec_server/test_mcp.py                        │
+  │ ✓ Expected: "ALL TESTS PASSED ✅"                                  │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+          READY FOR DEPLOYMENT ✓
+
+════════════════════════════════════════════════════════════════════════════════
+
+PHASE 2: RAILWAY DEPLOYMENT (PRODUCTION)
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 1: Prepare Deployment Files                                    │
+  │ ✓ Procfile (already created)                                        │
+  │ ✓ railway.json (already created)                                    │
+  │ ✓ Dockerfile (already created)                                      │
+  │ ✓ requirements.txt (already created)                                │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 2: Push to GitHub                                              │
+  │ $ git add .                                                         │
+  │ $ git commit -m "Add MCP server"                                    │
+  │ $ git push origin main                                              │
+  │ ✓ Code is now on GitHub                                            │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 3: Deploy on Railway                                           │
+  │ ✓ Go to https://railway.app                                        │
+  │ ✓ Click "New Project"                                               │
+  │ ✓ Select "GitHub Repo"                                              │
+  │ ✓ Connect dnext-support-chatbot                                    │
+  │ ✓ Wait for auto-deployment (2-3 minutes)                           │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 4: Configure Environment Variables (Railway Dashboard)         │
+  │ ✓ BACKEND_URL=http://localhost:8000                                 │
+  │ ✓ MCP_SERVER_HOST=0.0.0.0                                           │
+  │ ✓ MCP_SERVER_PORT=8001                                              │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 5: Get Production URL                                          │
+  │ ✓ Railway Dashboard → Deployments                                   │
+  │ ✓ Find "mcp-server" service                                         │
+  │ ✓ Copy URL: https://xxxx.up.railway.app                             │
+  │ ✓ Your endpoint: https://xxxx.up.railway.app/mcp                    │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Step 6: Test Production URL                                         │
+  │                                                                      │
+  │ Health Check:                                                        │
+  │   curl https://xxxx.up.railway.app/health                          │
+  │                                                                      │
+  │ List Tools:                                                          │
+  │   curl -X POST https://xxxx.up.railway.app/mcp ...                 │
+  │                                                                      │
+  │ Query Tool:                                                          │
+  │   curl -X POST https://xxxx.up.railway.app/mcp ...                 │
+  │                                                                      │
+  │ ✓ All tests pass ✓                                                  │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+          PRODUCTION READY ✓
+
+════════════════════════════════════════════════════════════════════════════════
+
+PHASE 3: SHARE WITH HAOTIAN
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Send Haotian:                                                       │
+  │                                                                      │
+  │ 1. Production Endpoint:                                             │
+  │    https://xxxx.up.railway.app/mcp                                  │
+  │                                                                      │
+  │ 2. Tool Definition (JSON):                                          │
+  │    {                                                                │
+  │      "name": "query_platform_supporting",                          │
+  │      "description": "This agent answers platform-related questions" │
+  │      ...                                                            │
+  │    }                                                                │
+  │                                                                      │
+  │ 3. Example Requests/Responses                                       │
+  │    (See HAOTIAN_INTEGRATION.md)                                    │
+  │                                                                      │
+  │ 4. Integration Guide                                                │
+  │    (See HAOTIAN_INTEGRATION.md)                                    │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Haotian:                                                            │
+  │ ✓ Registers tool in agent config                                   │
+  │ ✓ Starts using the MCP server                                      │
+  │ ✓ Can query platform documentation via your server                │
+  └─────────────────────────────────────────────────────────────────────┘
+           ↓
+       INTEGRATION COMPLETE ✓
+
+════════════════════════════════════════════════════════════════════════════════
+
+FILES CREATED FOR YOU
+════════════════════════════════════════════════════════════════════════════════
+
+Backend MCP Server (Production Code):
+  backend/mcp_spec_server/
+  ├── __init__.py
+  ├── http_server.py              (HTTP/Streamable HTTP server)
+  ├── server.py                   (MCP protocol handler)
+  ├── tools.py                    (query_platform_supporting tool)
+  ├── config.py                   (Configuration)
+  ├── requirements.txt            (Dependencies)
+  ├── Dockerfile                  (Production containerization)
+  ├── .env.example               (Environment template)
+  └── test_mcp.py                (Test suite)
+
+Testing & Documentation:
+  ├── LOCAL_TESTING_GUIDE.md       (How to test locally)
+  ├── RAILWAY_DEPLOYMENT.md        (How to deploy to Railway)
+  ├── HAOTIAN_INTEGRATION.md       (How Haotian integrates)
+  ├── COMPLETE_MCP_GUIDE.md        (Complete guide from start to finish)
+  ├── TEST_AND_DEPLOY.txt          (Quick reference)
+  └── MCP_WORKFLOW.txt             (This file - visual workflow)
+
+Deployment Files (One-time setup):
+  ├── Procfile                     (How to start MCP server)
+  └── railway.json                (Railway configuration)
+
+════════════════════════════════════════════════════════════════════════════════
+
+QUICK COMMANDS
+════════════════════════════════════════════════════════════════════════════════
+
+Local Development:
+  $ cd backend && python main.py                    # Start backend
+  $ cd backend/mcp_spec_server && python http_server.py  # Start MCP
+  $ python backend/mcp_spec_server/test_mcp.py           # Test
+  $ curl http://localhost:8001/health              # Health check
+
+GitHub & Railway:
+  $ git add . && git commit -m "msg" && git push    # Push to GitHub
+  $ railway logs -s mcp-server                      # View logs on Railway
+  $ railway open                                    # Open Railway dashboard
+
+Testing Production:
+  $ curl https://xxxx.up.railway.app/health         # Health check
+  $ curl -X POST https://xxxx.up.railway.app/mcp ... # Query endpoint
+
+════════════════════════════════════════════════════════════════════════════════
+
+YOU ARE HERE:
+  [✓] Phase 1 - Local Testing Complete
+  [→] Phase 2 - Ready for Railway Deployment
+  [ ] Phase 3 - Ready to Share with Haotian
+
+NEXT STEP: Follow "PHASE 2: RAILWAY DEPLOYMENT" above or read RAILWAY_DEPLOYMENT.md
+
+════════════════════════════════════════════════════════════════════════════════

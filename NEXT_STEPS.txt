@@ -1,0 +1,88 @@
+================================================================================
+QUICK ACTION STEPS - DO THIS NOW
+================================================================================
+
+STEP 1: Pull Updated Code
+────────────────────────────────────────────────────────────────────────────
+cd /path/to/dnext-support-chatbot
+git pull origin main
+
+
+STEP 2: Restart Backend (Terminal 1)
+────────────────────────────────────────────────────────────────────────────
+cd backend
+python main.py
+
+WAIT FOR: "✅ System user created with ID: 1" 
+         or 
+         "✅ System user already exists: system@dnext.io"
+
+
+STEP 3: Restart MCP Server (Terminal 2)
+────────────────────────────────────────────────────────────────────────────
+cd backend/mcp_spec_server
+python http_server.py
+
+WAIT FOR: Server listening on 0.0.0.0:8001
+
+
+STEP 4: Test (Terminal 3)
+────────────────────────────────────────────────────────────────────────────
+python backend/mcp_spec_server/diagnose.py
+
+LOOK FOR in [TEST 5]:
+   Answer: [Actual answer about DNEXT, like "DNEXT is a platform..."]
+
+SUCCESS MEANS: The suspended account error is GONE!
+
+
+STEP 5: Once Tests Pass - Deploy to Railway
+────────────────────────────────────────────────────────────────────────────
+See RAILWAY_DEPLOYMENT.md for full instructions
+
+Quick version:
+1. git push origin main
+2. Go to https://railway.app
+3. Connect GitHub repo → auto-deploys
+4. Get URL like: https://xxxx.up.railway.app/mcp
+5. Share URL with Haotian
+
+
+COMMON ISSUES
+────────────────────────────────────────────────────────────────────────────
+
+Q: Backend shows "error initializing database"
+A: Delete data/chatbot.db and restart. It will recreate.
+
+Q: Tests still show suspended account error
+A: Make sure you pulled the latest code (git pull origin main)
+
+Q: Port 8000 or 8001 already in use
+A: Kill existing Python process or use different port:
+   python main.py --port 9000
+   python http_server.py --port 9001
+
+
+WHAT CHANGED
+────────────────────────────────────────────────────────────────────────────
+
+File: backend/services/chat_service.py
+
+Added:
+- Import: from datetime import datetime
+- Method: _ensure_system_user() 
+  Creates system user for API/MCP access
+- Call: self._ensure_system_user() in __init__
+
+That's it! Simple fix with big impact.
+
+
+READY?
+────────────────────────────────────────────────────────────────────────────
+
+Once you see real answers in TEST 5:
+✓ You can deploy to Railway
+✓ You can share with Haotian
+✓ He can start using the tool!
+
+================================================================================
