@@ -1,0 +1,88 @@
+WHY VECTOR DB IS RETURNING 0 CHUNKS
+====================================
+
+ROOT CAUSE ANALYSIS:
+====================
+
+From your logs:
+- "Retrieved 0 chunks" appears on every ACTIONABLE query
+- But ChromaDB exists at ./chroma_db with 6.2MB of data
+- Documents exist at ./docs_md (6 markdown files found)
+- RAG engine is initialized in chatbot_app.py
+
+The issue is ONE of these 3:
+
+1. THE DOCS FOLDER PATH IS WRONG
+   - Config says: DOCS_FOLDER = "docs_md"
+   - But this is RELATIVE to current working directory
+   - When backend starts from /backend/, it looks for /backend/docs_md
+   - But docs are at /docs_md (root level)
+   - FIX: Update config to absolute path OR symlink
+   
+2. THE CHROMA COLLECTION IS EMPTY
+   - ChromaDB file exists, but wrong collection name
+   - RAG engine tries "support_docs" collection
+   - But actual data is in a different collection UUID
+   - The folder names "3e570ebb..." are collection UUIDs
+   - FIX: Check which collection has the data
+   
+3. THE COLLECTION WAS RESET BUT NOT REINDEXED
+   - Line 44 in rag_engine.py: create_collection(reset=True)
+   - This DELETES all previous data if collection exists
+   - Then tries to load from docs_md folder
+   - If path is wrong, it indexes 0 chunks
+   - FIX: Fix the path and restart backend
+
+WHAT'S LIKELY HAPPENING:
+========================
+
+Based on the logs showing:
+- "Retrieved 0 chunks" (not errors)
+- ChromaDB 6.2MB file exists
+- Collection folders exist
+
+The MOST LIKELY scenario: The code IS running rag_engine.initialize(), which DELETES the existing collection (reset=True), then tries to re-index from docs_md, but because the PATH IS RELATIVE, it can't find the docs and creates an EMPTY collection.
+
+Each time you restart the backend, it:
+1. Calls initialize()
+2. Deletes support_docs collection
+3. Tries to load from "docs_md" (relative path - WRONG!)
+4. Finds no files
+5. Creates empty collection
+6. Queries return 0 chunks
+
+SOLUTION:
+=========
+
+1. Change Config.DOCS_FOLDER to absolute path
+2. OR: Change the initialization to not reset on every startup
+3. OR: Fix the working directory when starting backend
+
+RECOMMENDED FIX:
+
+In /backend/services/chat_service.py, modify RAG initialization:
+
+Instead of:
+  self.rag_engine.initialize()
+
+Do this:
+  if not self._check_if_indexed():
+    self.rag_engine.load_documents()
+
+This way, it only indexes once, not on every startup.
+
+TO TEST IMMEDIATELY:
+
+1. Check what's ACTUALLY in ChromaDB by looking at the collections
+2. Verify docs_md path from the working directory
+3. Check backend startup logs for "Found X document(s)"
+
+If logs say "Found 0 documents", the PATH is wrong.
+If logs say "Created 0 chunks", the CHUNKING failed.
+
+NEXT STEPS:
+
+1. Show me the FULL backend startup logs (from python main.py)
+2. Look for lines about RAG engine initialization
+3. Look for "Found X document(s)" message
+4. If it says "Found 0 documents", we fix the path

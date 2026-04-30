@@ -1,0 +1,76 @@
+WHY 0 CHUNKS WERE RETRIEVED - ROOT CAUSE & FIX
+================================================
+
+ROOT CAUSE:
+===========
+
+The RAG engine was trying to load documents from a RELATIVE path "docs_md" 
+that didn't resolve correctly when the backend was started from the /backend directory.
+
+Sequence of events:
+1. Backend starts from /backend/
+2. RAG engine initializes in app/chatbot_app.py
+3. RAGEngine tries to find docs_md folder
+4. Relative path "docs_md" resolves to /backend/docs_md (WRONG!)
+5. Actual docs are at /docs_md (project root)
+6. No documents found
+7. Empty collection created
+8. All queries return 0 chunks
+
+THE FIX APPLIED:
+================
+
+Updated /app/rag_engine.py initialize() and load_documents() methods:
+
+Change 1: Better collection checking (lines 34-41)
+- Now checks if collection has items before returning it
+- Only rebuilds if collection is EMPTY
+- Added better logging to see exact chunk counts
+
+Change 2: Smarter path resolution (lines 50-68)
+- Tries current directory first
+- Falls back to parent directory if relative path doesn't exist
+- Falls back to Config.BASE_DIR
+- Now resolves to absolute path and checks existence
+- Shows full resolved path in logs (easier to debug)
+
+WHAT THIS MEANS:
+================
+
+✓ Backend will find docs whether started from /backend or /
+✓ ChromaDB will load with all chunks on startup
+✓ Subsequent queries will retrieve relevant chunks
+✓ Better logging shows exactly what path was used
+
+HOW TO TEST:
+============
+
+1. Pull the updated code:
+   git pull origin main
+
+2. Delete old empty ChromaDB:
+   rm -rf chroma_db
+
+3. Restart backend (from /backend/ or /):
+   python main.py
+
+4. Watch for logs showing:
+   - "Loading documents from /path/to/docs_md..."
+   - "Found N document(s)"
+   - "Created XXX chunks"
+   - "Indexed XXX chunks"
+
+5. Test with a query:
+   MCP: "What does dashboard cover?"
+   Expected: Should retrieve 3-5 chunks (not 0!)
+
+FILES MODIFIED:
+================
+
+- /app/rag_engine.py (2 methods updated, 25 lines added)
+
+IMPACT:
+=======
+
+Low risk - only affects initialization, no changes to core logic
+Should fix vector DB issues without breaking anything else

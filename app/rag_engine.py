@@ -31,19 +31,41 @@ class RAGEngine:
         logger.info("Initializing vector database...")
         try:
             self.collection = self.vector_store.get_collection()
-            logger.info("✅ Loaded existing vector database")
-        except Exception:
-            logger.info("No existing database found — building from documents...")
+            count = self.collection.count()
+            if count > 0:
+                logger.info(f"✅ Loaded existing vector database with {count} chunks")
+            else:
+                logger.info("⚠️  Existing collection is empty — rebuilding from documents...")
+                self.load_documents()
+        except Exception as e:
+            logger.warning(f"Could not load existing database ({str(e)}) — building from documents...")
             self.load_documents()
 
     @traceable(name="load_and_index_documents")
     def load_documents(self) -> Tuple[bool, str]:
         """Load all .md / .txt files from DOCS_FOLDER and index them."""
         try:
-            logger.info(f"Loading documents from {Config.DOCS_FOLDER}...")
-            self.collection = self.vector_store.create_collection(reset=True)
-
+            # Resolve docs path - handle both relative and absolute paths
             docs_path = Path(Config.DOCS_FOLDER)
+            
+            # If relative, make it relative to project root
+            if not docs_path.is_absolute():
+                # Try from current directory first
+                if not docs_path.exists():
+                    # Try from parent directory (in case we're in /backend)
+                    alt_path = Path("..") / docs_path
+                    if alt_path.exists():
+                        docs_path = alt_path
+                    else:
+                        # Try from Config.BASE_DIR
+                        docs_path = Config.BASE_DIR / docs_path
+            
+            logger.info(f"Loading documents from {docs_path.resolve()}...")
+            
+            if not docs_path.exists():
+                return False, f"❌ Docs folder not found: {docs_path.resolve()}"
+            
+            self.collection = self.vector_store.create_collection(reset=True)
             md_files = list(docs_path.glob("*.md")) + list(docs_path.glob("*.txt"))
 
             if not md_files:
